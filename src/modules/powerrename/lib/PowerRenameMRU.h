@@ -21,6 +21,7 @@ public:
     // IPowerRenameMRU
     IFACEMETHODIMP AddMRUString(_In_ PCWSTR entry);
     IFACEMETHODIMP_(const std::vector<std::wstring>&) GetMRUStrings();
+    IFACEMETHODIMP TogglePinMRUString(_In_ PCWSTR entry);
 
     static HRESULT CPowerRenameMRUSearch_CreateInstance(_Outptr_ IPowerRenameMRU** ppUnk);
     static HRESULT CPowerRenameMRUReplace_CreateInstance(_Outptr_ IPowerRenameMRU** ppUnk);

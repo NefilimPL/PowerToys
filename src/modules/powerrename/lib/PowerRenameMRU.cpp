@@ -76,6 +76,12 @@ IFACEMETHODIMP CPowerRenameMRU::AddMRUString(_In_ PCWSTR entry)
     return S_OK;
 }
 
+IFACEMETHODIMP CPowerRenameMRU::TogglePinMRUString(_In_ PCWSTR entry)
+{
+    mruList->TogglePin(entry);
+    return S_OK;
+}
+
 HRESULT CPowerRenameMRU::CPowerRenameMRUSearch_CreateInstance(_Outptr_ IPowerRenameMRU** ppUnk)
 {
     return CPowerRenameMRU::CreateInstance(c_searchMRUListFilePath, c_mruSearchRegPath, IID_PPV_ARGS(ppUnk));
