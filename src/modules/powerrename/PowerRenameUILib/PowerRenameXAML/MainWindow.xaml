@@ -201,7 +201,22 @@
                         x:Uid="SearchBox"
                         Height="40"
                         VerticalContentAlignment="Center"
-                        ItemsSource="{x:Bind SearchMRU}" />
+                        ItemsSource="{x:Bind SearchMRU}">
+                        <AutoSuggestBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding}" />
+                                    <Button
+                                        Content="&#xE718;"
+                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Tag="{Binding}"
+                                        Click="SearchMRUPinClick" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </AutoSuggestBox.ItemTemplate>
+                    </AutoSuggestBox>
 
                     <Button
                         x:Uid="RegExButton"
@@ -305,7 +320,22 @@
                         Height="40"
                         Padding="12,12,0,0"
                         VerticalContentAlignment="Center"
-                        ItemsSource="{x:Bind ReplaceMRU}" />
+                        ItemsSource="{x:Bind ReplaceMRU}">
+                        <AutoSuggestBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding}" />
+                                    <Button
+                                        Content="&#xE718;"
+                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Tag="{Binding}"
+                                        Click="ReplaceMRUPinClick" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </AutoSuggestBox.ItemTemplate>
+                    </AutoSuggestBox>
 
                     <Button
                         x:Uid="FileCreationButton"

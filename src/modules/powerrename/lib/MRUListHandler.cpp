@@ -10,16 +10,15 @@ namespace
     const wchar_t c_mruList[] = L"MRUList";
     const wchar_t c_insertionIdx[] = L"InsertionIdx";
     const wchar_t c_maxMRUSize[] = L"MaxMRUSize";
+    const wchar_t c_pinnedList[] = L"PinnedList";
 }
 
 MRUListHandler::MRUListHandler(unsigned int size, const std::wstring& filePath, const std::wstring& regPath) :
-    pushIdx(0),
     nextIdx(1),
     size(size),
     jsonFilePath(PTSettingsHelper::get_module_save_folder_location(PowerRenameConstants::ModuleKey) + filePath),
     registryFilePath(regPath)
 {
-    items.resize(size);
     Load();
 }
 
@@ -27,30 +26,38 @@ void MRUListHandler::Push(const std::wstring& data)
 {
     if (Exists(data))
     {
-        // TODO: Already existing item should be put on top of MRU list.
         return;
     }
-    items[pushIdx] = data;
-    pushIdx = (pushIdx + 1) % size;
+    items.push_back(data);
+    if (items.size() > size)
+    {
+        items.erase(items.begin());
+    }
+    UpdateAllItems();
     Save();
+}
+
+void MRUListHandler::TogglePin(const std::wstring& data)
+{
+    if (Exists(pinnedItems, data))
+    {
+        Unpin(data);
+    }
+    else
+    {
+        Pin(data);
+    }
 }
 
 bool MRUListHandler::Next(std::wstring& data)
 {
-    if (nextIdx == size + 1)
+    if (nextIdx > allItems.size())
     {
         Reset();
         return false;
     }
-    // Go backwards to consume latest items first.
-    unsigned int idx = (pushIdx + size - nextIdx) % size;
-    if (items[idx].empty())
-    {
-        Reset();
-        return false;
-    }
-    data = items[idx];
-    ++nextIdx;
+    data = allItems[allItems.size() - nextIdx];
+    nextIdx++;
     return true;
 }
 
@@ -61,7 +68,7 @@ void MRUListHandler::Reset()
 
 const std::vector<std::wstring>& MRUListHandler::GetItems()
 {
-    return items;
+    return allItems;
 }
 
 void MRUListHandler::Load()
@@ -83,18 +90,18 @@ void MRUListHandler::Save()
     json::JsonObject jsonData;
 
     jsonData.SetNamedValue(c_maxMRUSize, json::value(size));
-    jsonData.SetNamedValue(c_insertionIdx, json::value(pushIdx));
-    jsonData.SetNamedValue(c_mruList, Serialize());
+    jsonData.SetNamedValue(c_insertionIdx, json::value(0));
+    jsonData.SetNamedValue(c_mruList, Serialize(items));
+    jsonData.SetNamedValue(c_pinnedList, Serialize(pinnedItems));
 
     json::to_file(jsonFilePath, jsonData);
 }
 
-json::JsonArray MRUListHandler::Serialize()
+json::JsonArray MRUListHandler::Serialize(const std::vector<std::wstring>& list)
 {
     json::JsonArray searchMRU{};
 
-    std::wstring data{};
-    for (const std::wstring& item : items)
+    for (const std::wstring& item : list)
     {
         searchMRU.Append(json::value(item));
     }
@@ -120,54 +127,27 @@ void MRUListHandler::ParseJson()
         const json::JsonObject& jsonObject = json.value();
         try
         {
-            unsigned int oldSize{ size };
-            if (json::has(jsonObject, c_maxMRUSize, json::JsonValueType::Number))
+            if (json::has(jsonObject, c_pinnedList, json::JsonValueType::Array))
             {
-                oldSize = static_cast<unsigned int>(jsonObject.GetNamedNumber(c_maxMRUSize));
-            }
-            unsigned int oldPushIdx{ 0 };
-            if (json::has(jsonObject, c_insertionIdx, json::JsonValueType::Number))
-            {
-                oldPushIdx = static_cast<unsigned int>(jsonObject.GetNamedNumber(c_insertionIdx));
-                if (oldPushIdx < 0 || oldPushIdx >= oldSize)
+                auto jsonPinned = jsonObject.GetNamedArray(c_pinnedList);
+                for (uint32_t i = 0; i < jsonPinned.Size(); ++i)
                 {
-                    oldPushIdx = 0;
+                    pinnedItems.push_back(std::wstring(jsonPinned.GetStringAt(i)));
                 }
             }
             if (json::has(jsonObject, c_mruList, json::JsonValueType::Array))
             {
                 auto jsonArray = jsonObject.GetNamedArray(c_mruList);
-                if (oldSize == size)
+                for (uint32_t i = 0; i < jsonArray.Size(); ++i)
                 {
-                    for (uint32_t i = 0; i < jsonArray.Size(); ++i)
-                    {
-                        items[i] = std::wstring(jsonArray.GetStringAt(i));
-                    }
-                    pushIdx = oldPushIdx;
-                }
-                else
-                {
-                    std::vector<std::wstring> temp;
-                    for (unsigned int i = 0; i < std::min(jsonArray.Size(), size); ++i)
-                    {
-                        int idx = (oldPushIdx + oldSize - (i + 1)) % oldSize;
-                        temp.push_back(std::wstring(jsonArray.GetStringAt(idx)));
-                    }
-                    if (size > oldSize)
-                    {
-                        std::reverse(std::begin(temp), std::end(temp));
-                        pushIdx = static_cast<unsigned int>(temp.size());
-                        temp.resize(size);
-                    }
-                    else
-                    {
-                        temp.resize(size);
-                        std::reverse(std::begin(temp), std::end(temp));
-                    }
-                    items = std::move(temp);
-                    Save();
+                    items.push_back(std::wstring(jsonArray.GetStringAt(i)));
                 }
             }
+            if (items.size() > size)
+            {
+                items.erase(items.begin(), items.begin() + (items.size() - size));
+            }
+            UpdateAllItems();
         }
         catch (const winrt::hresult_error&)
         {
@@ -177,5 +157,40 @@ void MRUListHandler::ParseJson()
 
 bool MRUListHandler::Exists(const std::wstring& data)
 {
-    return std::find(std::begin(items), std::end(items), data) != std::end(items);
+    return Exists(items, data) || Exists(pinnedItems, data);
+}
+
+bool MRUListHandler::Exists(const std::vector<std::wstring>& list, const std::wstring& data)
+{
+    return std::find(std::begin(list), std::end(list), data) != std::end(list);
+}
+
+void MRUListHandler::Pin(const std::wstring& data)
+{
+    auto it = std::find(items.begin(), items.end(), data);
+    if (it != items.end())
+    {
+        items.erase(it);
+    }
+    pinnedItems.insert(pinnedItems.begin(), data);
+    UpdateAllItems();
+    Save();
+}
+
+void MRUListHandler::Unpin(const std::wstring& data)
+{
+    auto it = std::find(pinnedItems.begin(), pinnedItems.end(), data);
+    if (it != pinnedItems.end())
+    {
+        pinnedItems.erase(it);
+        Push(data);
+    }
+}
+
+void MRUListHandler::UpdateAllItems()
+{
+    allItems.clear();
+    allItems.insert(allItems.end(), pinnedItems.begin(), pinnedItems.end());
+    allItems.insert(allItems.end(), items.begin(), items.end());
+    Reset();
 }

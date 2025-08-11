@@ -449,6 +449,55 @@ namespace winrt::PowerRenameUI::implementation
         Windows::System::Launcher::LaunchUriAsync(winrt::Windows::Foundation::Uri{ L"https://aka.ms/PowerToysOverview_PowerRename" });
     }
 
+    void MainWindow::SearchMRUPinClick(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const&)
+    {
+        if (CSettingsInstance().GetMRUEnabled() && m_searchMRU)
+        {
+            auto button = sender.as<winrt::Microsoft::UI::Xaml::Controls::Button>();
+            auto text = button.Tag().as<winrt::hstring>();
+            m_searchMRU->TogglePinMRUString(text.c_str());
+            RefreshMRULists();
+        }
+    }
+
+    void MainWindow::ReplaceMRUPinClick(winrt::Windows::Foundation::IInspectable const& sender, winrt::Microsoft::UI::Xaml::RoutedEventArgs const&)
+    {
+        if (CSettingsInstance().GetMRUEnabled() && m_replaceMRU)
+        {
+            auto button = sender.as<winrt::Microsoft::UI::Xaml::Controls::Button>();
+            auto text = button.Tag().as<winrt::hstring>();
+            m_replaceMRU->TogglePinMRUString(text.c_str());
+            RefreshMRULists();
+        }
+    }
+
+    void MainWindow::RefreshMRULists()
+    {
+        m_searchMRUList.Clear();
+        if (m_searchMRU)
+        {
+            for (const auto& item : m_searchMRU->GetMRUStrings())
+            {
+                if (!item.empty())
+                {
+                    m_searchMRUList.Append(item);
+                }
+            }
+        }
+
+        m_replaceMRUList.Clear();
+        if (m_replaceMRU)
+        {
+            for (const auto& item : m_replaceMRU->GetMRUStrings())
+            {
+                if (!item.empty())
+                {
+                    m_replaceMRUList.Append(item);
+                }
+            }
+        }
+    }
+
     HRESULT MainWindow::CreateShellItemArrayFromPaths(
         std::vector<std::wstring> files,
         IShellItemArray** shellItemArray)
